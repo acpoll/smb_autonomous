@@ -1,7 +1,7 @@
 import rclpy
 from rclpy.node import Node
 from std_msgs.msg import Bool
-from geometry_msgs.msg import PoseStamped
+from geometry_msgs.msg import PointStamped
 from nav_msgs.msg import Odometry
 from std_srvs.srv import Trigger
 
@@ -21,7 +21,7 @@ class StateMachineNode(Node):
         self.create_subscription(Odometry, '/state_estimation', self.pose_callback, 10)
 
         # pub.back to org.
-        self.waypoint_pub = self.create_publisher(PoseStamped, '/way_point', 10)
+        self.waypoint_pub = self.create_publisher(PointStamped, '/way_point', 10)
 
         # serv.term.
         self.object_detect_cli = self.create_client(Trigger, '/save_processed_detections_csv')
@@ -31,11 +31,13 @@ class StateMachineNode(Node):
 
     def pose_callback(self, msg):
         if self.starting_pose is None:
-            pose_stamped = PoseStamped()
-            pose_stamped.header = msg.header
-            pose_stamped.pose = msg.pose.pose
-            self.starting_pose = pose_stamped
-            self.get_logger().info(f'save org. pose: position=({pose_stamped.pose.position.x:.2f}, {pose_stamped.pose.position.y:.2f}, {pose_stamped.pose.position.z:.2f}), orientation=({pose_stamped.pose.orientation.x:.2f}, {pose_stamped.pose.orientation.y:.2f}, {pose_stamped.pose.orientation.z:.2f}, {pose_stamped.pose.orientation.w:.2f})')
+            point_stamped = PointStamped()
+            point_stamped.header = msg.header
+            point_stamped.point = msg.pose.pose.position
+            self.starting_pose = point_stamped
+            self.get_logger().info(
+                f'save org. point: position=({point_stamped.point.x:.2f}, {point_stamped.point.y:.2f}, {point_stamped.point.z:.2f})'
+            )
 
     def tare_callback(self, msg):
         if msg.data and not self.termination_received:
