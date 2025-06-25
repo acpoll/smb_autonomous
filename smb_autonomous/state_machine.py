@@ -2,6 +2,7 @@ import rclpy
 from rclpy.node import Node
 from std_msgs.msg import Bool
 from geometry_msgs.msg import PoseStamped
+from nav_msgs.msg import Odometry
 from std_srvs.srv import Trigger
 
 class StateMachineNode(Node):
@@ -17,7 +18,7 @@ class StateMachineNode(Node):
 
         # subscribe termination topic + robot pose
         self.create_subscription(Bool, termination_topic, self.tare_callback, 10)
-        self.create_subscription(PoseStamped, '/state_estimation', self.pose_callback, 10)
+        self.create_subscription(Odometry, '/state_estimation', self.pose_callback, 10)
 
         # pub.back to org.
         self.waypoint_pub = self.create_publisher(PoseStamped, '/way_point', 10)
@@ -30,8 +31,11 @@ class StateMachineNode(Node):
 
     def pose_callback(self, msg):
         if self.starting_pose is None:
-            self.starting_pose = msg
-            self.get_logger().info('save org.')
+            pose_stamped = PoseStamped()
+            pose_stamped.header = msg.header
+            pose_stamped.pose = msg.pose.pose
+            self.starting_pose = pose_stamped
+            self.get_logger().info(f'save org. pose: position=({pose_stamped.pose.position.x:.2f}, {pose_stamped.pose.position.y:.2f}, {pose_stamped.pose.position.z:.2f}), orientation=({pose_stamped.pose.orientation.x:.2f}, {pose_stamped.pose.orientation.y:.2f}, {pose_stamped.pose.orientation.z:.2f}, {pose_stamped.pose.orientation.w:.2f})')
 
     def tare_callback(self, msg):
         if msg.data and not self.termination_received:
@@ -70,3 +74,6 @@ def main():
     node = StateMachineNode()
     rclpy.spin(node)
     rclpy.shutdown()
+
+if __name__ == '__main__':
+    main()
