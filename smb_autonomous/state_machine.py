@@ -1,7 +1,7 @@
 import rclpy
 from rclpy.node import Node
 from std_msgs.msg import Bool
-from geometry_msgs.msg import PoseStamped
+from geometry_msgs.msg import PoseStamped, PointStamped
 from std_srvs.srv import Trigger
 
 class StateMachineNode(Node):
@@ -19,8 +19,11 @@ class StateMachineNode(Node):
         self.create_subscription(Bool, termination_topic, self.tare_callback, 10)
         self.create_subscription(PoseStamped, '/state_estimation', self.pose_callback, 10)
 
+        # subscribe to waypoint remap and republish to waypoint
+        self.create_subscription(PointStamped, '/way_point_remap', self.waypoint_remap_callback, 10)
+
         # pub.back to org.
-        self.waypoint_pub = self.create_publisher(PoseStamped, '/way_point', 10)
+        self.waypoint_pub = self.create_publisher(PointStamped, '/way_point', 10)
 
         # serv.term.
         self.object_detect_cli = self.create_client(Trigger, '/save_processed_detections_csv')
@@ -41,9 +44,9 @@ class StateMachineNode(Node):
 
     def trigger_actions(self):
         if self.starting_pose is not None:
-            self.waypoint_pub.publish(self.starting_pose)
-            self.get_logger().info(' published waypoint ')
-
+            # self.waypoint_pub.publish(self.starting_pose)
+            # self.get_logger().info(' published waypoint ')
+            pass
         if self.object_detect_cli.service_is_ready():
             future = self.object_detect_cli.call_async(Trigger.Request())
             future.add_done_callback(self.handle_save_csv_response)
@@ -64,6 +67,14 @@ class StateMachineNode(Node):
                 self.get_logger().error(f'Failed: {response.message}')
         except Exception as e:
             self.get_logger().error(f'Exception when calling save_detections_csv: {e}')
+
+    def waypoint_remap_callback(self, msg):
+        # Only republish if exploration is not finished
+        if not self.termination_received:
+            self.waypoint_pub.publish(msg)
+            # self.get_logger().debug('Republished waypoint from remap to way_point')
+        else:
+            self.get_logger().info('Exploration finished, not republishing waypoint')
 
 def main():
     rclpy.init()
